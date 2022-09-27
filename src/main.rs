@@ -3,19 +3,24 @@ use bevy::{prelude::*, time::FixedTimestep};
 const TETRIS_TICK_MS: f64 = 150.0;
 
 fn main() {
-    App::new()
-        .insert_resource(WindowDescriptor {
-            title: "Stotris".to_string(),
-            width: 350.0,
-            height: 500.0,
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+    let mut app = App::new();
+
+    app.insert_resource(WindowDescriptor {
+        title: "Stotris".to_string(),
+        width: 350.0,
+        height: 500.0,
+        ..default()
+    })
+    .add_plugins(DefaultPlugins);
+
+    #[cfg(feature = "inspector")]
+    app.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
+
+    app.add_startup_system(setup)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TETRIS_TICK_MS / 60.0))
-                .with_system(block_gravity)
+                .with_system(block_gravity),
         )
         .add_system(block_rotation)
         .add_system(bevy::window::close_on_esc)
