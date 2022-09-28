@@ -1,10 +1,22 @@
-use bevy::{prelude::*, time::FixedTimestep};
+use bevy::{prelude::*, time::FixedTimestep, log::{LogSettings, Level}};
 use rand::prelude::*;
 
 const TETRIS_TICK_MS: f64 = 150.0;
 
 fn main() {
     let mut app = App::new();
+
+    #[cfg(debug_assertions)]
+    app.insert_resource(LogSettings {
+        filter: "warn,stotris=debug".into(),
+        level: Level::DEBUG,
+    });
+
+    #[cfg(not(debug_assertions))]
+    app.insert_resource(LogSettings {
+        filter: "warn".into(),
+        level: Level::WARN,
+    });
 
     app.insert_resource(WindowDescriptor {
         title: "Stotris".to_string(),
@@ -35,7 +47,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    info!("Spawning camera");
+    debug!("Spawning camera");
     commands.spawn_bundle(Camera2dBundle::default());
 }
 
@@ -54,7 +66,7 @@ fn block_spawning(
     if new_stock_events.iter().next().is_some() {
         let new_block_position = Vec3::new(rand::thread_rng().gen_range(-150.0..150.0), 200.0, 0.0);
 
-        info!("Spawning block at {:?}", new_block_position);
+        debug!("Spawning block at {:?}", new_block_position);
 
         commands
             .spawn_bundle(SpriteBundle {
@@ -72,7 +84,7 @@ fn block_spawning(
 fn block_despawning(mut commands: Commands, query: Query<(Entity, &Transform), With<Block>>) {
     for (block, position) in &query {
         if position.translation.y <= -300.0 {
-            info!("Despawning block at {:?}", position.translation);
+            debug!("Despawning block at {:?}", position.translation);
             commands.entity(block).despawn();
         }
     }
