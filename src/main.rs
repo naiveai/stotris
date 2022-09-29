@@ -99,10 +99,7 @@ fn block_spawning(
         commands
             .spawn_bundle(SpriteBundle {
                 texture: block_image,
-                transform: Transform {
-                    translation: new_block_position,
-                    ..default()
-                },
+                transform: Transform::from_translation(new_block_position),
                 ..default()
             })
             .insert(Block);
@@ -127,17 +124,15 @@ fn block_gravity(mut query: Query<&mut Transform, With<Block>>) {
 }
 
 fn block_rotation(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Block>>) {
-    use std::f32::consts::TAU;
-
-    let rotation = if keys.just_pressed(KeyCode::Left) {
-        Quat::from_rotation_z(TAU / 4.0)
+    let angle = if keys.just_pressed(KeyCode::Left) {
+        0.25
     } else if keys.just_pressed(KeyCode::Right) {
-        Quat::from_rotation_z(0.75 * TAU)
+        0.75
     } else {
-        Quat::IDENTITY
-    };
+        0.0
+    } * std::f32::consts::TAU;
 
     for mut block_transform in &mut query {
-        block_transform.rotation *= rotation;
+        block_transform.rotate_z(angle);
     }
 }
