@@ -2,8 +2,9 @@ mod block;
 
 use bevy::{
     log::{Level, LogSettings},
-    prelude::*,
+    prelude::*, render::camera::WindowOrigin,
 };
+use bevy_ecs_ldtk::prelude::*;
 use block::BlockPlugin;
 
 fn main() {
@@ -23,8 +24,8 @@ fn main() {
 
     app.insert_resource(WindowDescriptor {
         title: "Stotris".to_string(),
-        width: 500.0,
-        height: 500.0,
+        width: 512.0,
+        height: 640.0,
         ..default()
     })
     .add_plugins(DefaultPlugins);
@@ -33,36 +34,29 @@ fn main() {
     app.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
 
     app.add_startup_system(setup)
-        .add_startup_system(setup_buckets)
-        .add_plugin(BlockPlugin)
+        .insert_resource(LevelSelection::Identifier("Main".to_string()))
+        .insert_resource(LdtkSettings {
+            int_grid_rendering: IntGridRendering::Invisible,
+            ..default()
+        })
+        .add_plugin(LdtkPlugin)
+        // .add_plugin(BlockPlugin)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     debug!("Spawning camera");
-    commands.spawn_bundle(Camera2dBundle::default());
-}
+    commands.spawn_bundle(Camera2dBundle {
+        projection: OrthographicProjection {
+            window_origin: WindowOrigin::BottomLeft,
+            ..default()
+        },
+        ..default()
+    });
 
-#[derive(Component)]
-struct Bucket;
-
-fn setup_buckets(mut commands: Commands, asset_server: Res<AssetServer>) {
-    debug!("Spawning buckets");
-
-    let bucket_image = asset_server.load("bucket.png");
-
-    for x_corner in [-140.0, -40.0, 60.0, 160.0] {
-        commands
-            .spawn_bundle(SpriteBundle {
-                texture: bucket_image.clone(),
-                transform: Transform {
-                    translation: Vec3::new(x_corner, -200.0, 0.0),
-                    scale: Vec3::new(3.0, 3.0, 1.0),
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(Bucket);
-    }
+    commands.spawn_bundle(LdtkWorldBundle {
+        ldtk_handle: asset_server.load("stotris.ldtk"),
+        ..default()
+    });
 }
