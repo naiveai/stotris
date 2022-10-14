@@ -32,16 +32,24 @@ fn main() {
     #[cfg(feature = "inspector")]
     app.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
 
-    app.add_startup_system(setup)
+    app.add_startup_system(setup_camera)
         .add_startup_system(setup_buckets)
+        .add_startup_system(setup_audio)
         .add_plugin(BlockPlugin)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup_camera(mut commands: Commands) {
     debug!("Spawning camera");
     commands.spawn_bundle(Camera2dBundle::default());
+}
+
+fn setup_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    audio.play_with_settings(
+        asset_server.load("stotris_background.ogg"),
+        PlaybackSettings::LOOP,
+    );
 }
 
 #[derive(Component)]
