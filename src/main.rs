@@ -11,8 +11,8 @@ use bevy::{
 use bevy_ecs_ldtk::prelude::*;
 use block::BlockPlugin;
 
-const GAME_WIDTH: f32 = 512.0;
-const GAME_HEIGHT: f32 = 640.0;
+const GAME_WIDTH: f32 = 320.0;
+const GAME_HEIGHT: f32 = 560.0;
 
 fn main() {
     let mut app = App::new();

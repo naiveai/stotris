@@ -1,4 +1,5 @@
 use bevy::{prelude::*, time::FixedTimestep};
+use bevy_ecs_ldtk::prelude::*;
 use rand::prelude::*;
 
 const TETRIS_TICK_MS: f64 = 150.0;
@@ -16,15 +17,32 @@ impl Plugin for BlockPlugin {
                     })
                     .with_system(block_gravity),
             )
+            .register_ldtk_entity::<BlockBundle>("T")
+            .register_ldtk_entity::<BlockBundle>("S")
+            .register_ldtk_entity::<BlockBundle>("Z")
+            .register_ldtk_entity::<BlockBundle>("L")
+            .register_ldtk_entity::<BlockBundle>("J")
+            .register_ldtk_entity::<BlockBundle>("Line")
+            .register_ldtk_entity::<BlockBundle>("Square")
             .add_system(block_spawning)
             .add_system(block_rotation)
-            .add_system(block_despawning);
+            .add_system(update_block_transform);
     }
 }
 
 struct NewStockEvent;
 
-#[derive(Component)]
+#[derive(Bundle, LdtkEntity)]
+pub struct BlockBundle {
+    block: Block,
+    #[sprite_sheet_bundle]
+    #[bundle]
+    sprite_sheet: SpriteSheetBundle,
+    #[grid_coords]
+    coords: GridCoords
+}
+
+#[derive(Component, Default)]
 struct Block;
 
 fn block_spawning(
@@ -32,29 +50,7 @@ fn block_spawning(
     mut new_stock_events: EventReader<NewStockEvent>,
     asset_server: Res<AssetServer>,
 ) {
-    let block_image = asset_server.load("block.png");
-
     if new_stock_events.iter().next().is_some() {
-        let new_block_position = Vec3::new(rand::thread_rng().gen_range(-150.0..150.0), 200.0, 0.0);
-
-        debug!("Spawning block at {:?}", new_block_position);
-
-        commands
-            .spawn_bundle(SpriteBundle {
-                texture: block_image,
-                transform: Transform::from_translation(new_block_position),
-                ..default()
-            })
-            .insert(Block);
-    }
-}
-
-fn block_despawning(mut commands: Commands, query: Query<(Entity, &Transform), With<Block>>) {
-    for (block, position) in &query {
-        if position.translation.y <= -300.0 {
-            debug!("Despawning block at {:?}", position.translation);
-            commands.entity(block).despawn();
-        }
     }
 }
 
@@ -72,10 +68,17 @@ fn block_rotation(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, Wi
     }
 }
 
-const BLOCK_GRAVITY: f32 = 30.0;
+const BLOCK_GRAVITY: i32 = 1;
 
-fn block_gravity(mut query: Query<&mut Transform, With<Block>>) {
-    for mut block_transform in &mut query {
-        block_transform.translation.y -= BLOCK_GRAVITY;
+fn block_gravity(mut query: Query<&mut GridCoords, With<Block>>) {
+    for mut block_coords in &mut query {
+        block_coords.y -= BLOCK_GRAVITY;
+    }
+}
+
+fn update_block_transform(mut query: Query<(&GridCoords, &mut Transform), With<Block>>) {
+    for (block_coords, mut block_transform) in &mut query {
+        block_transform.translation.x = (block_coords.x * 16) as f32;
+        block_transform.translation.y = (block_coords.y * 16) as f32;
     }
 }
