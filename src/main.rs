@@ -3,8 +3,16 @@ mod block;
 use bevy::{
     log::{Level, LogSettings},
     prelude::*,
+    render::{
+        camera::{ScalingMode, WindowOrigin},
+        texture::ImageSettings,
+    },
 };
+use bevy_ecs_ldtk::prelude::*;
 use block::BlockPlugin;
+
+const GAME_WIDTH: f32 = 320.0;
+const GAME_HEIGHT: f32 = 560.0;
 
 fn main() {
     let mut app = App::new();
@@ -23,8 +31,8 @@ fn main() {
 
     app.insert_resource(WindowDescriptor {
         title: "Stotris".to_string(),
-        width: 500.0,
-        height: 500.0,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
         ..default()
     })
     .add_plugins(DefaultPlugins);
@@ -33,16 +41,38 @@ fn main() {
     app.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
 
     app.add_startup_system(setup_camera)
-        .add_startup_system(setup_buckets)
         .add_startup_system(setup_audio)
+        .insert_resource(ImageSettings::default_nearest())
+        .insert_resource(LevelSelection::Identifier("Main".to_string()))
+        .insert_resource(LdtkSettings {
+            level_spawn_behavior: LevelSpawnBehavior::UseWorldTranslation {
+                load_level_neighbors: false,
+            },
+            int_grid_rendering: IntGridRendering::Invisible,
+            set_clear_color: SetClearColor::FromLevelBackground,
+            ..default()
+        })
+        .add_plugin(LdtkPlugin)
         .add_plugin(BlockPlugin)
+        .add_system(camera_fit_inside_current_level)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     debug!("Spawning camera");
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn_bundle(Camera2dBundle {
+        projection: OrthographicProjection {
+            window_origin: WindowOrigin::BottomLeft,
+            ..default()
+        },
+        ..default()
+    });
+
+    commands.spawn_bundle(LdtkWorldBundle {
+        ldtk_handle: asset_server.load("stotris.ldtk"),
+        ..default()
+    });
 }
 
 fn setup_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
@@ -52,25 +82,40 @@ fn setup_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     );
 }
 
-#[derive(Component)]
-struct Bucket;
+const ASPECT_RATIO: f32 = GAME_WIDTH / GAME_HEIGHT;
 
-fn setup_buckets(mut commands: Commands, asset_server: Res<AssetServer>) {
-    debug!("Spawning buckets");
+pub fn camera_fit_inside_current_level(
+    mut camera_query: Query<(
+        &mut bevy::render::camera::OrthographicProjection,
+        &mut Transform,
+    )>,
+    level_query: Query<(&Transform, &Handle<LdtkLevel>), Without<OrthographicProjection>>,
+    ldtk_levels: Res<Assets<LdtkLevel>>,
+) {
+    let (mut orthographic_projection, mut camera_transform) = camera_query.single_mut();
 
-    let bucket_image = asset_server.load("bucket.png");
+    for (level_transform, level_handle) in level_query.iter() {
+        if let Some(ldtk_level) = ldtk_levels.get(level_handle) {
+            let level = &ldtk_level.level;
+            let level_ratio = level.px_wid as f32 / ldtk_level.level.px_hei as f32;
 
-    for x_corner in [-140.0, -40.0, 60.0, 160.0] {
-        commands
-            .spawn_bundle(SpriteBundle {
-                texture: bucket_image.clone(),
-                transform: Transform {
-                    translation: Vec3::new(x_corner, -200.0, 0.0),
-                    scale: Vec3::new(3.0, 3.0, 1.0),
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(Bucket);
+            orthographic_projection.scaling_mode = ScalingMode::None;
+            orthographic_projection.bottom = 0.;
+            orthographic_projection.left = 0.;
+            if level_ratio > ASPECT_RATIO {
+                // level is wider than the screen
+                orthographic_projection.top = (level.px_hei as f32 / 9.).round() * 9.;
+                orthographic_projection.right = orthographic_projection.top * ASPECT_RATIO;
+                camera_transform.translation.y = 0.;
+            } else {
+                // level is taller than the screen
+                orthographic_projection.right = (level.px_wid as f32 / 16.).round() * 16.;
+                orthographic_projection.top = orthographic_projection.right / ASPECT_RATIO;
+                camera_transform.translation.x = 0.;
+            }
+
+            camera_transform.translation.x += level_transform.translation.x;
+            camera_transform.translation.y += level_transform.translation.y;
+        }
     }
 }
